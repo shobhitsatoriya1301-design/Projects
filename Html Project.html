@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aura | Premium Tea & Coffee</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Playfair Display', 'serif'],
+                    },
+                    colors: {
+                        brand: {
+                            dark: '#1C1917', // Espresso
+                            light: '#FAF7F2', // Cream
+                            accent: '#B48E4B', // Gold/Brass
+                            coffee: '#4A3B32',
+                            tea: '#4F634A'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Custom CSS -->
+    <style>
+        body {
+            background-color: #FAF7F2;
+            color: #1C1917;
+        }
+        
+        .glass-nav {
+            background: rgba(250, 247, 242, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(180, 142, 75, 0.1);
+        }
+
+        /* Cart Drawer Transitions */
+        .cart-overlay {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .cart-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        .cart-drawer {
+            transform: translateX(100%);
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .cart-drawer.active {
+            transform: translateX(0);
+        }
+
+        /* Toast Notification */
+        .toast {
+            transform: translateY(100%);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        /* Hide Scrollbar for cleaner look in cart */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col relative overflow-x-hidden">
+
+    <header class="fixed w-full top-0 z-40 glass-nav transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <!-- Mobile Menu Button -->
+                <div class="flex items-center sm:hidden">
+                    <button id="mobile-menu-btn" class="text-brand-dark hover:text-brand-accent p-2">
+                        <i class="fa-solid fa-bars text-xl"></i>
+                    </button>
+                </div>
+
+                <!-- Logo -->
+                <div class="flex-shrink-0 flex items-center justify-center sm:justify-start w-full sm:w-auto">
+                    <a href="#" onclick="showPage('store'); return false;" class="font-serif text-3xl font-bold tracking-tight text-brand-dark">
+                        AURA<span class="text-brand-accent">.</span>
+                    </a>
+                </div>
+
+                <!-- Desktop Navigation -->
+                <nav class="hidden sm:flex space-x-8 items-center">
+                    <a href="#shop" onclick="navigateToSection('shop'); return false;" class="text-sm font-medium text-brand-dark hover:text-brand-accent transition-colors uppercase tracking-wider">Shop</a>
+                    <a href="#subscriptions" onclick="navigateToSection('subscriptions'); return false;" class="text-sm font-medium text-brand-dark hover:text-brand-accent transition-colors uppercase tracking-wider">Subscriptions</a>
+                    <a href="#orders" onclick="showPage('orders'); return false;" id="nav-orders-link" class="text-sm font-medium text-brand-dark hover:text-brand-accent transition-colors uppercase tracking-wider flex items-center gap-2">
+                        My Orders
+                        <span id="nav-pending-badge" class="hidden h-5 min-w-[20px] px-1.5 items-center justify-center rounded-full bg-brand-accent text-[10px] font-bold text-white">0</span>
+                    </a>
+                </nav>
+
+                <!-- Right Icons (Orders on Mobile + Cart) -->
+                <div class="flex items-center space-x-2">
+                    <button onclick="showPage('orders')" class="sm:hidden text-brand-dark hover:text-brand-accent p-2 relative transition-colors" title="My Orders">
+                        <i class="fa-solid fa-box text-lg"></i>
+                    </button>
+                    <button id="cart-toggle" class="text-brand-dark hover:text-brand-accent p-2 relative transition-colors group">
+                        <i class="fa-solid fa-bag-shopping text-xl"></i>
+                        <span id="cart-badge" class="absolute top-0 right-0 -mt-1 -mr-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand-accent text-[10px] font-bold text-white shadow-sm transform scale-0 transition-transform duration-300">0</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Dropdown Menu -->
+        <div id="mobile-menu" class="hidden sm:hidden bg-brand-light border-t border-gray-200 px-6 py-4 space-y-3">
+            <a href="#shop" onclick="navigateToSection('shop'); toggleMobileMenu(); return false;" class="block text-sm font-medium text-brand-dark hover:text-brand-accent uppercase tracking-wider">Shop</a>
+            <a href="#subscriptions" onclick="navigateToSection('subscriptions'); toggleMobileMenu(); return false;" class="block text-sm font-medium text-brand-dark hover:text-brand-accent uppercase tracking-wider">Subscriptions</a>
+            <a href="#orders" onclick="showPage('orders'); toggleMobileMenu(); return false;" class="block text-sm font-medium text-brand-dark hover:text-brand-accent uppercase tracking-wider">My Orders</a>
+        </div>
+    </header>
+
+    <!-- ==================== PAGE 1: STOREFRONT ==================== -->
+    <main id="store-view" class="flex-grow pt-20">
+        <!-- Hero Section -->
+        <section class="relative bg-brand-dark text-white min-h-[85vh] flex items-center">
+            <div class="absolute inset-0 z-0">
+                <img src="https://images.unsplash.com/photo-1497935586351-b67a49e012bf?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80" alt="Coffee pouring" class="w-full h-full object-cover opacity-40">
+                <div class="absolute inset-0 bg-gradient-to-t from-brand-dark via-transparent to-transparent"></div>
+            </div>
+            
+            <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center md:text-left">
+                <span class="text-brand-accent font-medium tracking-[0.2em] uppercase text-sm mb-4 block">The Art of Brewing</span>
+                <h1 class="font-serif text-5xl md:text-7xl font-bold mb-6 leading-tight max-w-3xl">
+                    Elevate your morning ritual.
+                </h1>
+                <p class="text-lg md:text-xl text-gray-300 mb-10 max-w-2xl font-light">
+                    Curated single-origin coffee beans and artisanal loose-leaf teas, delivered fresh from the world's finest estates to your door.
+                </p>
+                <div class="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
+                    <a href="#shop" class="bg-brand-accent hover:bg-yellow-600 text-white px-8 py-4 rounded-sm font-medium transition-colors duration-300 tracking-wide">
+                        Explore Catalog
+                    </a>
+                    <a href="#subscriptions" class="bg-transparent border border-white hover:bg-white hover:text-brand-dark text-white px-8 py-4 rounded-sm font-medium transition-colors duration-300 tracking-wide">
+                        View Subscriptions
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Shop Section -->
+        <section id="shop" class="py-24 bg-brand-light">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-16">
+                    <h2 class="font-serif text-4xl font-bold text-brand-dark mb-4">Curated Collection</h2>
+                    <div class="w-16 h-0.5 bg-brand-accent mx-auto mb-8"></div>
+                    
+                    <!-- Filters -->
+                    <div class="flex justify-center space-x-2 md:space-x-6">
+                        <button class="filter-btn active px-4 py-2 border-b-2 border-brand-accent text-brand-dark font-medium transition-colors" data-filter="all">All</button>
+                        <button class="filter-btn px-4 py-2 border-b-2 border-transparent text-gray-500 hover:text-brand-dark transition-colors" data-filter="coffee">Coffee</button>
+                        <button class="filter-btn px-4 py-2 border-b-2 border-transparent text-gray-500 hover:text-brand-dark transition-colors" data-filter="tea">Tea</button>
+                    </div>
+                </div>
+
+                <!-- Product Grid -->
+                <div id="product-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+                    <!-- Products will be injected here via JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Subscriptions Section -->
+        <section id="subscriptions" class="py-24 bg-white border-t border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-16">
+                    <h2 class="font-serif text-4xl font-bold text-brand-dark mb-4">Subscribe & Savor</h2>
+                    <p class="text-gray-600 max-w-2xl mx-auto">Never run out of your favorite brew. Choose a plan that fits your lifestyle, and let us handle the rest.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-5xl mx-auto">
+                    <!-- Plan 1 -->
+                    <div class="bg-brand-light border border-gray-200 p-8 flex flex-col relative group hover:shadow-xl transition-shadow duration-300">
+                        <h3 class="font-serif text-2xl font-bold text-brand-dark mb-2">The Explorer</h3>
+                        <p class="text-brand-accent font-medium mb-6">Monthly Delivery</p>
+                        <ul class="space-y-4 mb-8 flex-grow text-gray-600 text-sm">
+                            <li class="flex items-start"><i class="fa-solid fa-check text-brand-accent mt-1 mr-3"></i> 1 Bag of Roaster's Choice Coffee or Tea</li>
+                            <li class="flex items-start"><i class="fa-solid fa-check text-brand-accent mt-1 mr-3"></i> Tasting notes and origin story</li>
+                            <li class="flex items-start"><i class="fa-solid fa-check text-brand-accent mt-1 mr-3"></i> Free shipping</li>
+                        </ul>
+                        <div class="mt-auto">
+                            <p class="text-2xl font-bold text-brand-dark mb-4">$22 <span class="text-sm font-normal text-gray-500">/ mo</span></p>
+                            <button onclick="addSubscriptionToCart('sub_explorer', 'The Explorer (Monthly)', 22)" class="w-full bg-brand-dark text-white py-3 hover:bg-brand-accent transition-colors font-medium">Select Plan</button>
+                        </div>
+                    </div>
+
+                    <!-- Plan 2 -->
+                    <div class="bg-brand-dark text-white p-8 flex flex-col relative transform md:-translate-y-4 shadow-2xl">
+                        <div class="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-brand-accent text-white px-4 py-1 text-xs font-bold uppercase tracking-wider">Most Popular</div>
+                        <h3 class="font-serif text-2xl font-bold mb-2">The Enthusiast</h3>
+                        <p class="text-brand-accent font-medium mb-6">Bi-Weekly Delivery</p>
+                        <ul class="space-y-4 mb-8 flex-grow text-gray-300 text-sm">
+                            <li class="flex items-start"><i class="fa-solid fa-check text-brand-accent mt-1 mr-3"></i> 2 Bags of Premium Coffee or Tea</li>
+                            <li class="flex items-start"><i class="fa-solid fa-check text-brand-accent mt-1 mr-3"></i> Customizable flavor profiles</li>
+                            <li class="flex items-start"><i class="fa-solid fa-check text-brand-accent mt-1 mr-3"></i> Early access to rare releases</li>
+                            <li class="flex items-start"><i class="fa-solid fa-check text-brand-accent mt-1 mr-3"></i> Free shipping</li>
+                        </ul>
+                        <div class="mt-auto">
+                            <p class="text-2xl font-bold mb-4">$40 <span class="text-sm font-normal text-gray-400">/ delivery</span></p>
+                            <button onclick="addSubscriptionToCart('sub_enthusiast', 'The Enthusiast (Bi-Weekly)', 40)" class="w-full bg-brand-accent text-white py-3 hover:bg-yellow-600 transition-colors font-medium">Select Plan</button>
+                        </div>
+                    </div>
+
+                    <!-- Plan 3 -->
+                    <div class="bg-brand-light border border-gray-200 p-8 flex flex-col relative group hover:shadow-xl transition-shadow duration-300">
+                        <h3 class="font-serif text-2xl font-bold text-brand-dark mb-2">The Connoisseur</h3>
+                        <p class="text-brand-accent font-medium mb-6">Weekly Delivery</p>
+                        <ul class="space-y-4 mb-8 flex-grow text-gray-600 text-sm">
+                            <li class="flex items-start"><i class="fa-solid fa-check text-brand-accent mt-1 mr-3"></i> 1 Bag of Reserve Level Coffee/Tea</li>
+                            <li class="flex items-start"><i class="fa-solid fa-check text-brand-accent mt-1 mr-3"></i> Exclusive virtual tasting sessions</li>
+                            <li class="flex items-start"><i class="fa-solid fa-check text-brand-accent mt-1 mr-3"></i> VIP Customer Support</li>
+                        </ul>
+                        <div class="mt-auto">
+                            <p class="text-2xl font-bold text-brand-dark mb-4">$35 <span class="text-sm font-normal text-gray-500">/ week</span></p>
+                            <button onclick="addSubscriptionToCart('sub_connoisseur', 'The Connoisseur (Weekly)', 35)" class="w-full bg-brand-dark text-white py-3 hover:bg-brand-accent transition-colors font-medium">Select Plan</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- ==================== PAGE 2: MY ORDERS (PENDING & HISTORY) ==================== -->
+    <main id="orders-view" class="hidden flex-grow pt-28 pb-24 bg-brand-light">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+            <!-- Top Back Link & Heading -->
+            <div class="flex flex-col sm:flex-row sm:items-end justify-between mb-10 gap-4">
+                <div>
+                    <button onclick="showPage('store')" class="text-xs uppercase tracking-widest text-brand-accent hover:text-brand-dark font-medium mb-3 inline-flex items-center gap-2 transition-colors">
+                        <i class="fa-solid fa-arrow-left"></i> Back to Shop
+                    </button>
+                    <h1 class="font-serif text-4xl font-bold text-brand-dark">Your Orders</h1>
+                    <p class="text-gray-500 text-sm mt-1">Track pending deliveries and review your past Aura brews.</p>
+                </div>
+
+                <!-- Quick Summary Pills -->
+                <div class="flex gap-3">
+                    <div class="bg-white border border-gray-200 px-4 py-2.5 rounded-sm text-center">
+                        <span class="block text-[10px] uppercase tracking-wider text-gray-400">Pending</span>
+                        <span id="summary-pending-count" class="font-serif text-xl font-bold text-brand-accent">0</span>
+                    </div>
+                    <div class="bg-white border border-gray-200 px-4 py-2.5 rounded-sm text-center">
+                        <span class="block text-[10px] uppercase tracking-wider text-gray-400">Delivered</span>
+                        <span id="summary-delivered-count" class="font-serif text-xl font-bold text-brand-dark">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Order Tabs -->
+            <div class="flex border-b border-gray-200 mb-8 space-x-8">
+                <button onclick="switchOrderTab('pending')" id="tab-pending" class="pb-3 border-b-2 border-brand-accent text-brand-dark font-medium text-sm uppercase tracking-wider transition-colors">
+                    Pending Delivery
+                </button>
+                <button onclick="switchOrderTab('history')" id="tab-history" class="pb-3 border-b-2 border-transparent text-gray-500 hover:text-brand-dark font-medium text-sm uppercase tracking-wider transition-colors">
+                    Order History
+                </button>
+            </div>
+
+            <!-- Orders List Container -->
+            <div id="orders-container" class="space-y-6">
+                <!-- Orders injected via JS -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-brand-dark text-white pt-16 pb-8 border-t border-gray-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
+                <div class="col-span-1 md:col-span-2">
+                    <a href="#" onclick="showPage('store'); return false;" class="font-serif text-3xl font-bold tracking-tight text-white mb-6 inline-block">
+                        AURA<span class="text-brand-accent">.</span>
+                    </a>
+                    <p class="text-gray-400 max-w-sm mb-6 text-sm leading-relaxed">
+                        Dedicated to sourcing the finest sustainable coffees and teas from around the globe, elevating your daily rituals into moments of pure bliss.
+                    </p>
+                    <div class="flex space-x-4">
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors"><i class="fa-brands fa-instagram text-xl"></i></a>
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors"><i class="fa-brands fa-twitter text-xl"></i></a>
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors"><i class="fa-brands fa-facebook-f text-xl"></i></a>
+                    </div>
+                </div>
+                
+                <div>
+                    <h4 class="font-serif text-lg font-bold mb-4">Explore</h4>
+                    <ul class="space-y-2 text-sm text-gray-400">
+                        <li><a href="#shop" onclick="navigateToSection('shop'); return false;" class="hover:text-brand-accent transition-colors">Our Coffee</a></li>
+                        <li><a href="#shop" onclick="navigateToSection('shop'); return false;" class="hover:text-brand-accent transition-colors">Our Tea</a></li>
+                        <li><a href="#subscriptions" onclick="navigateToSection('subscriptions'); return false;" class="hover:text-brand-accent transition-colors">Subscriptions</a></li>
+                        <li><a href="#orders" onclick="showPage('orders'); return false;" class="hover:text-brand-accent transition-colors">My Orders</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h4 class="font-serif text-lg font-bold mb-4">Support</h4>
+                    <ul class="space-y-2 text-sm text-gray-400">
+                        <li><a href="#" class="hover:text-brand-accent transition-colors">FAQ</a></li>
+                        <li><a href="#" class="hover:text-brand-accent transition-colors">Shipping & Returns</a></li>
+                        <li><a href="#" class="hover:text-brand-accent transition-colors">Contact Us</a></li>
+                        <li><a href="#" class="hover:text-brand-accent transition-colors">Wholesale</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center text-xs text-gray-500">
+                <p>&copy; 2026 Aura Premium Co. All rights reserved.</p>
+                <div class="flex space-x-4 mt-4 md:mt-0">
+                    <a href="#" class="hover:text-white">Privacy Policy</a>
+                    <a href="#" class="hover:text-white">Terms of Service</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Cart Overlay & Drawer -->
+    <div id="cart-overlay" class="fixed inset-0 bg-black/50 z-50 cart-overlay"></div>
+    <div id="cart-drawer" class="fixed top-0 right-0 h-full w-full sm:w-[400px] bg-brand-light z-50 shadow-2xl flex flex-col cart-drawer">
+        <!-- Cart Header -->
+        <div class="p-6 border-b border-gray-200 flex justify-between items-center bg-white">
+            <h2 class="font-serif text-2xl font-bold text-brand-dark">Your Cart</h2>
+            <button id="close-cart" class="text-gray-400 hover:text-brand-dark transition-colors">
+                <i class="fa-solid fa-xmark text-2xl"></i>
+            </button>
+        </div>
+
+        <!-- Cart Items Container -->
+        <div id="cart-items" class="flex-grow p-6 overflow-y-auto no-scrollbar bg-brand-light flex flex-col gap-6">
+            <!-- Empty State (Default) -->
+            <div id="empty-cart-msg" class="flex flex-col items-center justify-center h-full text-center text-gray-500">
+                <i class="fa-solid fa-mug-hot text-4xl mb-4 text-gray-300"></i>
+                <p>Your cart is currently empty.</p>
+                <button id="continue-shopping" class="mt-6 text-brand-accent font-medium hover:underline">Continue Shopping</button>
+            </div>
+            <!-- Dynamic Cart Items will go here -->
+        </div>
+
+        <!-- Cart Footer -->
+        <div class="p-6 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+            <div class="flex justify-between items-center mb-4">
+                <span class="text-gray-600 font-medium">Subtotal</span>
+                <span id="cart-total" class="font-serif text-2xl font-bold text-brand-dark">$0.00</span>
+            </div>
+            <p class="text-xs text-gray-500 mb-6 text-center">Shipping and taxes calculated at checkout.</p>
+            <button id="checkout-btn" onclick="checkout()" class="w-full bg-brand-dark text-white py-4 font-medium hover:bg-brand-accent transition-colors flex justify-center items-center gap-2 group">
+                Checkout <i class="fa-solid fa-arrow-right transform group-hover:translate-x-1 transition-transform"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-brand-dark text-white px-6 py-3 rounded shadow-lg flex items-center space-x-3 toast pointer-events-none">
+        <i class="fa-solid fa-check-circle text-brand-accent"></i>
+        <span id="toast-message" class="text-sm font-medium">Added to cart!</span>
+    </div>
+
+    <script>
+        // --- Product Data ---
+        const products = [
+            {
+                id: 'c1',
+                name: 'Royal Kona Coffee',
+                type: 'coffee',
+                price: 15,
+                image: 'https://cdn11.bigcommerce.com/s-9wlsnri4bn/images/stencil/original/image-manager/rk-aplus-gourmet-600x400-min.jpg',
+                notes: 'Chocolate, Nutty, Honey',
+                roast: 'Medium Roast'
+            },
+            {
+                id: 't1',
+                name: 'Matcha Ceremonial Grade',
+                type: 'tea',
+                price: 35,
+                image: 'https://images.unsplash.com/photo-1582793988951-9aed5509eb97?auto=format&fit=crop&w=600&q=80',
+                notes: 'Umami, Sweet Grass, Creamy',
+                roast: 'Uji, Japan'
+            },
+            {
+                id: 'c2',
+                name: 'Colombian Supremo',
+                type: 'coffee',
+                price: 21,
+                image: 'https://images.unsplash.com/photo-1611162458324-aae1eb4129a4?auto=format&fit=crop&w=600&q=80',
+                notes: 'Dark Chocolate, Caramel, Orange',
+                roast: 'Medium Roast'
+            },
+            {
+                id: 't2',
+                name: 'Darjeeling First Flush',
+                type: 'tea',
+                price: 28,
+                image: 'https://images.unsplash.com/photo-1597481499750-3e6b22637e12?auto=format&fit=crop&w=600&q=80',
+                notes: 'Muscatel, Floral, Astringent',
+                roast: 'India'
+            },
+            {
+                id: 'c3',
+                name: 'Sumatra Mandheling',
+                type: 'coffee',
+                price: 23,
+                image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=600&q=80',
+                notes: 'Earthy, Cedar, Dark Cocoa',
+                roast: 'Dark Roast'
+            },
+            {
+                id: 't3',
+                name: 'Oolong Tieguanyin',
+                type: 'tea',
+                price: 32,
+                image: 'https://images.unsplash.com/photo-1563822249548-9a72b6353cd1?auto=format&fit=crop&w=600&q=80',
+                notes: 'Orchid, Butter, Sweet Finish',
+                roast: 'Fujian, China'
+            },
+            {
+                id: 'c4',
+                name: 'Guatemala Antigua',
+                type: 'coffee',
+                price: 22,
+                image: 'https://images.unsplash.com/photo-1610632380989-680fe40816c6?auto=format&fit=crop&w=600&q=80',
+                notes: 'Apple, Cinnamon, Cocoa',
+                roast: 'Medium Roast'
+            },
+            {
+                id: 't4',
+                name: 'Earl Grey Reserve',
+                type: 'tea',
+                price: 20,
+                image: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&w=600&q=80',
+                notes: 'Bergamot, Black Tea, Citrus',
+                roast: 'Blend'
+            }
+        ];
+
+        // --- Default Sample Orders (Loaded only on first visit) ---
+        const defaultOrders = [
+            {
+                id: 'AUR-4821',
+                date: 'Nov 17, 2026',
+                estimatedDelivery: 'Nov 21, 2026',
+                status: 'Pending',
+                stage: 2, // 1: Confirmed, 2: Roasting & Packing, 3: Out for Delivery
+                total: 56,
+                items: [
+                    { id: 'c2', name: 'Colombian Supremo', price: 21, quantity: 1, image: 'https://images.unsplash.com/photo-1611162458324-aae1eb4129a4?auto=format&fit=crop&w=600&q=80', type: 'coffee' },
+                    { id: 't1', name: 'Matcha Ceremonial Grade', price: 35, quantity: 1, image: 'https://images.unsplash.com/photo-1582793988951-9aed5509eb97?auto=format&fit=crop&w=600&q=80', type: 'tea' }
+                ]
+            },
+            {
+                id: 'AUR-3190',
+                date: 'Oct 28, 2026',
+                deliveredDate: 'Nov 1, 2026',
+                status: 'Delivered',
+                stage: 3,
+                total: 43,
+                items: [
+                    { id: 'c1', name: 'Royal Kona Coffee', price: 15, quantity: 1, image: 'https://cdn11.bigcommerce.com/s-9wlsnri4bn/images/stencil/original/image-manager/rk-aplus-gourmet-600x400-min.jpg', type: 'coffee' },
+                    { id: 't2', name: 'Darjeeling First Flush', price: 28, quantity: 1, image: 'https://images.unsplash.com/photo-1597481499750-3e6b22637e12?auto=format&fit=crop&w=600&q=80', type: 'tea' }
+                ]
+            }
+        ];
+
+        // --- State ---
+        let cart = [];
+        let orders = JSON.parse(localStorage.getItem('aura_orders')) || defaultOrders;
+        let currentFilter = 'all';
+        let currentOrderTab = 'pending';
+
+        // Save initial sample orders if storage was empty
+        if (!localStorage.getItem('aura_orders')) {
+            localStorage.setItem('aura_orders', JSON.stringify(orders));
+        }
+
+        // --- DOM Elements ---
+        const storeView = document.getElementById('store-view');
+        const ordersView = document.getElementById('orders-view');
+        const navOrdersLink = document.getElementById('nav-orders-link');
+        const navPendingBadge = document.getElementById('nav-pending-badge');
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        const mobileMenu = document.getElementById('mobile-menu');
+
+        const productGrid = document.getElementById('product-grid');
+        const filterBtns = document.querySelectorAll('.filter-btn');
+        const cartToggle = document.getElementById('cart-toggle');
+        const cartOverlay = document.getElementById('cart-overlay');
+        const cartDrawer = document.getElementById('cart-drawer');
+        const closeCartBtn = document.getElementById('close-cart');
+        const continueShoppingBtn = document.getElementById('continue-shopping');
+        const cartItemsContainer = document.getElementById('cart-items');
+        const emptyCartMsg = document.getElementById('empty-cart-msg');
+        const cartTotalEl = document.getElementById('cart-total');
+        const cartBadge = document.getElementById('cart-badge');
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toast-message');
+
+        // --- Page Navigation ---
+        function showPage(page) {
+            if (page === 'orders') {
+                storeView.classList.add('hidden');
+                ordersView.classList.remove('hidden');
+                navOrdersLink.classList.add('text-brand-accent');
+                renderOrders();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+                ordersView.classList.add('hidden');
+                storeView.classList.remove('hidden');
+                navOrdersLink.classList.remove('text-brand-accent');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        function navigateToSection(sectionId) {
+            ordersView.classList.add('hidden');
+            storeView.classList.remove('hidden');
+            navOrdersLink.classList.remove('text-brand-accent');
+            setTimeout(() => {
+                const el = document.getElementById(sectionId);
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }, 50);
+        }
+
+        function toggleMobileMenu() {
+            mobileMenu.classList.toggle('hidden');
+        }
+        mobileMenuBtn.addEventListener('click', toggleMobileMenu);
+
+        // --- Render Products ---
+        function renderProducts() {
+            productGrid.innerHTML = '';
+            const filteredProducts = products.filter(p => currentFilter === 'all' || p.type === currentFilter);
+            
+            filteredProducts.forEach(product => {
+                const card = document.createElement('div');
+                card.className = 'group bg-white rounded-sm overflow-hidden border border-gray-100 hover:shadow-xl transition-all duration-300 flex flex-col';
+                const badgeColor = product.type === 'coffee' ? 'bg-brand-coffee' : 'bg-brand-tea';
+                
+                card.innerHTML = `
+                    <div class="relative h-64 overflow-hidden">
+                        <img src="${product.image}" alt="${product.name}" class="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500">
+                        <div class="absolute top-4 left-4 ${badgeColor} text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1">
+                            ${product.type}
+                        </div>
+                    </div>
+                    <div class="p-6 flex flex-col flex-grow">
+                        <div class="mb-2">
+                            <span class="text-xs text-brand-accent font-medium uppercase tracking-wider">${product.roast}</span>
+                        </div>
+                        <h3 class="font-serif text-xl font-bold text-brand-dark mb-1">${product.name}</h3>
+                        <p class="text-sm text-gray-500 mb-4 flex-grow">${product.notes}</p>
+                        <div class="flex items-center justify-between mt-auto pt-4 border-t border-gray-100">
+                            <span class="text-lg font-bold text-brand-dark">$${product.price}</span>
+                            <button onclick="addToCart('${product.id}')" class="h-10 w-10 rounded-full bg-brand-light text-brand-dark flex items-center justify-center hover:bg-brand-accent hover:text-white transition-colors">
+                                <i class="fa-solid fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                productGrid.appendChild(card);
+            });
+        }
+
+        // --- Filter Logic ---
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                filterBtns.forEach(b => {
+                    b.classList.remove('border-brand-accent', 'text-brand-dark');
+                    b.classList.add('border-transparent', 'text-gray-500');
+                });
+                
+                const target = e.target;
+                target.classList.remove('border-transparent', 'text-gray-500');
+                target.classList.add('border-brand-accent', 'text-brand-dark');
+                currentFilter = target.dataset.filter;
+                
+                productGrid.style.opacity = 0;
+                setTimeout(() => {
+                    renderProducts();
+                    productGrid.style.opacity = 1;
+                    productGrid.style.transition = 'opacity 0.3s ease';
+                }, 200);
+            });
+        });
+
+        // --- Cart Functions ---
+        function addToCart(productId) {
+            const product = products.find(p => p.id === productId);
+            if (!product) return;
+
+            const existingItem = cart.find(item => item.id === productId && !item.isSubscription);
+            if (existingItem) {
+                existingItem.quantity += 1;
+            } else {
+                cart.push({ ...product, quantity: 1, isSubscription: false });
+            }
+            
+            updateCartUI();
+            showToast(`${product.name} added to cart`);
+        }
+
+        function addSubscriptionToCart(id, name, price) {
+            const existingItem = cart.find(item => item.id === id);
+            if (existingItem) {
+                existingItem.quantity += 1;
+            } else {
+                cart.push({ 
+                    id, 
+                    name, 
+                    price, 
+                    quantity: 1, 
+                    isSubscription: true,
+                    image: 'https://images.unsplash.com/photo-1497935586351-b67a49e012bf?auto=format&fit=crop&w=200&q=80',
+                    type: 'Subscription Plan'
+                });
+            }
+            updateCartUI();
+            openCart();
+        }
+
+        function updateQuantity(id, change) {
+            const item = cart.find(i => i.id === id);
+            if (!item) return;
+
+            item.quantity += change;
+            if (item.quantity <= 0) {
+                cart = cart.filter(i => i.id !== id);
+            }
+            updateCartUI();
+        }
+
+        function removeItem(id) {
+            cart = cart.filter(i => i.id !== id);
+            updateCartUI();
+        }
+
+        function updateCartUI() {
+            const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+            cartBadge.textContent = totalItems;
+            if (totalItems > 0) {
+                cartBadge.classList.remove('scale-0');
+            } else {
+                cartBadge.classList.add('scale-0');
+            }
+
+            const totalCost = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            cartTotalEl.textContent = `$${totalCost.toFixed(2)}`;
+
+            if (cart.length === 0) {
+                emptyCartMsg.style.display = 'flex';
+                Array.from(cartItemsContainer.children).forEach(child => {
+                    if (child.id !== 'empty-cart-msg') cartItemsContainer.removeChild(child);
+                });
+                return;
+            }
+
+            emptyCartMsg.style.display = 'none';
+            Array.from(cartItemsContainer.children).forEach(child => {
+                if (child.id !== 'empty-cart-msg') cartItemsContainer.removeChild(child);
+            });
+
+            cart.forEach(item => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'flex gap-4 bg-white p-4 rounded-sm border border-gray-100 shadow-sm';
+                const subtitle = item.isSubscription ? 'Recurring Plan' : item.type;
+                
+                itemEl.innerHTML = `
+                    <div class="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-sm overflow-hidden">
+                        <img src="${item.image}" alt="${item.name}" class="w-full h-full object-cover">
+                    </div>
+                    <div class="flex-grow flex flex-col justify-between">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h4 class="font-serif font-bold text-brand-dark text-sm max-w-[150px] leading-tight">${item.name}</h4>
+                                <p class="text-[10px] text-gray-400 uppercase tracking-wider mt-1">${subtitle}</p>
+                            </div>
+                            <button onclick="removeItem('${item.id}')" class="text-gray-400 hover:text-red-500 transition-colors">
+                                <i class="fa-solid fa-trash-can text-sm"></i>
+                            </button>
+                        </div>
+                        <div class="flex justify-between items-end mt-2">
+                            <div class="flex items-center border border-gray-200 rounded-sm">
+                                <button onclick="updateQuantity('${item.id}', -1)" class="w-6 h-6 flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-brand-dark transition-colors">-</button>
+                                <span class="w-6 text-center text-xs font-medium text-brand-dark">${item.quantity}</span>
+                                <button onclick="updateQuantity('${item.id}', 1)" class="w-6 h-6 flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-brand-dark transition-colors">+</button>
+                            </div>
+                            <span class="font-bold text-brand-dark text-sm">$${(item.price * item.quantity).toFixed(2)}</span>
+                        </div>
+                    </div>
+                `;
+                cartItemsContainer.appendChild(itemEl);
+            });
+        }
+
+        // --- Orders Page Logic ---
+        function saveOrders() {
+            localStorage.setItem('aura_orders', JSON.stringify(orders));
+            updateOrderCounters();
+        }
+
+        function updateOrderCounters() {
+            const pendingCount = orders.filter(o => o.status === 'Pending').length;
+            const deliveredCount = orders.filter(o => o.status === 'Delivered').length;
+
+            document.getElementById('summary-pending-count').textContent = pendingCount;
+            document.getElementById('summary-delivered-count').textContent = deliveredCount;
+
+            if (pendingCount > 0) {
+                navPendingBadge.textContent = pendingCount;
+                navPendingBadge.classList.remove('hidden');
+                navPendingBadge.classList.add('flex');
+            } else {
+                navPendingBadge.classList.add('hidden');
+                navPendingBadge.classList.remove('flex');
+            }
+        }
+
+        function switchOrderTab(tab) {
+            currentOrderTab = tab;
+            const tabPending = document.getElementById('tab-pending');
+            const tabHistory = document.getElementById('tab-history');
+
+            if (tab === 'pending') {
+                tabPending.classList.add('border-brand-accent', 'text-brand-dark');
+                tabPending.classList.remove('border-transparent', 'text-gray-500');
+                tabHistory.classList.remove('border-brand-accent', 'text-brand-dark');
+                tabHistory.classList.add('border-transparent', 'text-gray-500');
+            } else {
+                tabHistory.classList.add('border-brand-accent', 'text-brand-dark');
+                tabHistory.classList.remove('border-transparent', 'text-gray-500');
+                tabPending.classList.remove('border-brand-accent', 'text-brand-dark');
+                tabPending.classList.add('border-transparent', 'text-gray-500');
+            }
+            renderOrders();
+        }
+
+        function markAsDelivered(orderId) {
+            const order = orders.find(o => o.id === orderId);
+            if (!order) return;
+
+            order.status = 'Delivered';
+            order.stage = 3;
+            order.deliveredDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            saveOrders();
+            renderOrders();
+            showToast(`Order #${orderId} moved to Order History`);
+        }
+
+        function reorderItems(orderId) {
+            const order = orders.find(o => o.id === orderId);
+            if (!order) return;
+
+            order.items.forEach(item => {
+                const existing = cart.find(c => c.id === item.id);
+                if (existing) {
+                    existing.quantity += item.quantity;
+                } else {
+                    cart.push({ ...item });
+                }
+            });
+
+            updateCartUI();
+            openCart();
+            showToast('Items added back to your cart');
+        }
+
+        function renderOrders() {
+            const container = document.getElementById('orders-container');
+            container.innerHTML = '';
+
+            const targetStatus = currentOrderTab === 'pending' ? 'Pending' : 'Delivered';
+            const filtered = orders.filter(o => o.status === targetStatus);
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-white border border-gray-200 p-12 text-center rounded-sm">
+                        <i class="fa-solid ${currentOrderTab === 'pending' ? 'fa-truck-fast' : 'fa-clock-rotate-left'} text-4xl text-gray-300 mb-4"></i>
+                        <h3 class="font-serif text-xl font-bold text-brand-dark mb-2">
+                            ${currentOrderTab === 'pending' ? 'No pending deliveries' : 'No order history yet'}
+                        </h3>
+                        <p class="text-sm text-gray-500 mb-6">
+                            ${currentOrderTab === 'pending' ? 'All caught up! Any new orders you place will appear here.' : 'Completed deliveries will show up here for easy reordering.'}
+                        </p>
+                        <button onclick="showPage('store')" class="bg-brand-dark text-white px-6 py-3 text-sm font-medium hover:bg-brand-accent transition-colors">
+                            Browse Collection
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            filtered.forEach(order => {
+                const isPending = order.status === 'Pending';
+                const card = document.createElement('div');
+                card.className = 'bg-white border border-gray-200 rounded-sm overflow-hidden shadow-sm';
+
+                const itemsHTML = order.items.map(item => `
+                    <div class="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
+                        <div class="flex items-center gap-4">
+                            <img src="${item.image}" alt="${item.name}" class="w-14 h-14 object-cover rounded-sm bg-gray-100">
+                            <div>
+                                <h4 class="font-serif font-bold text-brand-dark text-sm">${item.name}</h4>
+                                <p class="text-xs text-gray-500">Qty: ${item.quantity} &middot; $${item.price.toFixed(2)} each</p>
+                            </div>
+                        </div>
+                        <span class="font-medium text-brand-dark text-sm">$${(item.price * item.quantity).toFixed(2)}</span>
+                    </div>
+                `).join('');
+
+                const trackerHTML = isPending ? `
+                    <div class="px-6 py-4 bg-brand-light/60 border-b border-gray-100">
+                        <div class="flex justify-between text-xs font-medium mb-2">
+                            <span class="text-brand-dark"><i class="fa-solid fa-check-circle text-brand-accent mr-1"></i> Order Confirmed</span>
+                            <span class="${order.stage >= 2 ? 'text-brand-dark' : 'text-gray-400'}"><i class="fa-solid fa-fire-flame-curved ${order.stage >= 2 ? 'text-brand-accent' : 'text-gray-300'} mr-1"></i> Roasting & Packing</span>
+                            <span class="${order.stage >= 3 ? 'text-brand-dark' : 'text-gray-400'}"><i class="fa-solid fa-truck ${order.stage >= 3 ? 'text-brand-accent' : 'text-gray-300'} mr-1"></i> Out for Delivery</span>
+                        </div>
+                        <div class="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
+                            <div class="bg-brand-accent h-full transition-all duration-500" style="width: ${order.stage === 1 ? '33%' : order.stage === 2 ? '66%' : '90%'}"></div>
+                        </div>
+                    </div>
+                ` : '';
+
+                card.innerHTML = `
+                    <!-- Order Header -->
+                    <div class="p-6 border-b border-gray-100 flex flex-wrap justify-between items-center gap-4 bg-white">
+                        <div class="flex flex-wrap gap-6 text-sm">
+                            <div>
+                                <span class="block text-[10px] uppercase tracking-wider text-gray-400">Order ID</span>
+                                <span class="font-bold text-brand-dark">#${order.id}</span>
+                            </div>
+                            <div>
+                                <span class="block text-[10px] uppercase tracking-wider text-gray-400">Placed On</span>
+                                <span class="text-brand-dark">${order.date}</span>
+                            </div>
+                            <div>
+                                <span class="block text-[10px] uppercase tracking-wider text-gray-400">${isPending ? 'Est. Delivery' : 'Delivered On'}</span>
+                                <span class="font-medium ${isPending ? 'text-brand-accent' : 'text-brand-dark'}">${isPending ? order.estimatedDelivery : order.deliveredDate}</span>
+                            </div>
+                        </div>
+
+                        <span class="px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-sm ${isPending ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}">
+                            ${isPending ? 'Pending Delivery' : 'Delivered'}
+                        </span>
+                    </div>
+
+                    ${trackerHTML}
+
+                    <!-- Order Items -->
+                    <div class="px-6 py-2">
+                        ${itemsHTML}
+                    </div>
+
+                    <!-- Order Footer -->
+                    <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex flex-wrap justify-between items-center gap-4">
+                        <div>
+                            <span class="text-xs text-gray-500 mr-2">Order Total:</span>
+                            <span class="font-serif text-xl font-bold text-brand-dark">$${order.total.toFixed(2)}</span>
+                        </div>
+                        <div class="flex gap-3">
+                            ${isPending
+                                ? `<button onclick="markAsDelivered('${order.id}')" class="border border-brand-dark text-brand-dark hover:bg-brand-dark hover:text-white px-4 py-2 text-xs font-medium uppercase tracking-wider transition-colors">Mark as Delivered</button>`
+                                : `<button onclick="reorderItems('${order.id}')" class="bg-brand-dark text-white hover:bg-brand-accent px-5 py-2 text-xs font-medium uppercase tracking-wider transition-colors"><i class="fa-solid fa-rotate-right mr-1.5"></i> Reorder</button>`
+                            }
+                        </div>
+                    </div>
+                `;
+
+                container.appendChild(card);
+            });
+        }
+
+        // --- Drawer Logic ---
+        function openCart() {
+            cartOverlay.classList.add('active');
+            cartDrawer.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeCart() {
+            cartOverlay.classList.remove('active');
+            cartDrawer.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        cartToggle.addEventListener('click', openCart);
+        closeCartBtn.addEventListener('click', closeCart);
+        cartOverlay.addEventListener('click', closeCart);
+        continueShoppingBtn.addEventListener('click', closeCart);
+
+        // --- Utilities ---
+        function showToast(msg) {
+            toastMessage.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        function checkout() {
+            if (cart.length === 0) return;
+            const btn = document.getElementById('checkout-btn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Processing...';
+            
+            setTimeout(() => {
+                // Build new pending order
+                const now = new Date();
+                const estDate = new Date();
+                estDate.setDate(now.getDate() + 4);
+
+                const newOrder = {
+                    id: 'AUR-' + Math.floor(1000 + Math.random() * 9000),
+                    date: now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                    estimatedDelivery: estDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                    status: 'Pending',
+                    stage: 1,
+                    total: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+                    items: cart.map(item => ({ ...item }))
+                };
+
+                orders.unshift(newOrder);
+                saveOrders();
+
+                cart = [];
+                updateCartUI();
+                btn.innerHTML = originalText;
+                closeCart();
+                
+                // Switch to Orders page so user immediately sees their new pending order
+                switchOrderTab('pending');
+                showPage('orders');
+
+                toastMessage.textContent = `Order #${newOrder.id} placed!`;
+                toast.classList.add('show', 'bg-green-600');
+                toast.querySelector('i').classList.replace('fa-check-circle', 'fa-champagne-glasses');
+                
+                setTimeout(() => {
+                    toast.classList.remove('show', 'bg-green-600');
+                    setTimeout(() => {
+                        toast.querySelector('i').classList.replace('fa-champagne-glasses', 'fa-check-circle');
+                    }, 300);
+                }, 4000);
+
+            }, 1200);
+        }
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            renderProducts();
+            updateOrderCounters();
+            
+            const header = document.querySelector('header');
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > 20) {
+                    header.classList.add('shadow-md');
+                } else {
+                    header.classList.remove('shadow-md');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
